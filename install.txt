@@ -1,0 +1,714 @@
+nuc installation
+
+1.
+copy nuc_mod_install
+
+2.
+insert into root/viewtopic.php
+approx line 2105
+///////////////// nuc nuc nuc //////////////////////////////////////////
+// update nuc topicks track
+if ($user->data['is_registered'])
+{
+    // insert row
+	$db->sql_return_on_error(false);
+	$sql_ary = array(
+					'user_id'		=> (int) $user->data['user_id'],
+					'topic_id'		=> (int) $topic_id,
+					'mark_time'		=> time(),
+					'number'		=> 1,
+	);
+    $sql =
+           'INSERT INTO ' . NUC_TOPICS_TRACK_TABLE . ' ' . $db->sql_build_array('INSERT', $sql_ary).' '.
+           'ON DUPLICATE KEY UPDATE mark_time='.time().',number=number+1;';
+	$db->sql_query( $sql );
+}
+//////////////////////////nuc end /////////////////////////////////////////////// 
+
+3.
+insert into root\includes\constants.php
+
+- after      define('ITEM_REAPPROVE', 3); // => has been edited and needs to be re-approved
+
+// nuc nuc
+define('ITEM_UNREVIEWED', 0); // => has not yet been REVIEWed
+define('ITEM_REVIEWED', 1); // => has been REVIEWed
+
+- after     // Additional tables
+
+//nuc nuc
+define('NUC_ALL_CONCEPTS_TABLE',    $table_prefix . 'nuc_all_concepts');
+define('NUC_NEWERS_TABLE',			$table_prefix . 'nuc_newers');
+define('NUC_CONCEPTS_TABLE',    	$table_prefix . 'nuc_concepts');
+define('NUC_DNA_TABLE', 			$table_prefix . 'nuc_dna');
+define('NUC_RECOM_LINKS_TABLE',		$table_prefix . 'nuc_recom_links');
+define('NUC_RECOM_TOPICS_TABLE',	$table_prefix . 'nuc_recom_topics');
+define('NUC_FRIENDS_TABLE', 		$table_prefix . 'nuc_friends');
+define('NUC_TOPICS_TRACK_TABLE', 	$table_prefix . 'nuc_topics_track');
+define('NUC_FIND_TABLE',        	$table_prefix . 'nuc_find');
+define('NUC_INFO_TABLE',        	$table_prefix . 'nuc_info');
+// nuc nuc end
+
+4.
+insert into root\includes\functions.php
+
+function trunc_limit(&$title, $limit = 0)
+{
+	$title = censor_text($title);
+	if ($limit > 0)
+	{
+		return (strlen(utf8_decode($title)) > $limit + 3) ? truncate_string($title, $limit) . '...' : $title;
+	}
+	else
+	{
+		return $title;
+	}
+}
+
+5.
+insert into root\includes\functions_display.php
+- after approx 718  return array($active_forum_ary, $forum_moderators);
+
+//nuc nuc nuc
+// ---------------------------------------- recommended block ---------------------------------------------------------------------------------
+
+		// recommended topics
+        
+		$sql = 'SELECT t.topic_title, t.forum_id, t.topic_id
+			FROM ' . TOPICS_TABLE . ' t
+            JOIN ' . NUC_RECOM_TOPICS_TABLE . ' r ON t.topic_id = r.topic_id
+			WHERE topic_posts_approved > 0 
+			AND topic_moved_id = 0
+            AND r.user_id = ' . $user->data[ 'user_id' ] . '
+			ORDER BY topic_time DESC';
+            
+		$result = $db->sql_query_limit($sql, 10);
+
+		while(($row = $db->sql_fetchrow($result)) && ($row['topic_title']))
+		{
+			// auto auth
+			if (($auth->acl_get('f_read', $row['forum_id'])) || ($row['forum_id'] == '0'))
+			{
+				$template->assign_block_vars('recom_topics', array(
+					'TITLE'			=> trunc_limit($row['topic_title'], $config['board3_recent_title_limit_' . $module_id]),
+					'FULL_TITLE'	=> censor_text($row['topic_title']),
+					'U_VIEW_TOPIC'	=> append_sid("{$phpbb_root_path}viewtopic.$phpEx", 'f=' . (($row['forum_id'] == 0) ? $g_forum_id : $row['forum_id']) . '&amp;t=' . $row['topic_id'])
+				));
+			}
+		}
+		$db->sql_freeresult($result);
+
+		// recommended people
+
+		$sql = 'SELECT u.user_id, u.username, u.user_colour, FLOOR(f.friend_k) as friend_k
+				FROM ' . USERS_TABLE . ' u
+				LEFT JOIN ' . BANLIST_TABLE . ' b ON (u.user_id = b.ban_userid)
+                LEFT JOIN ' . NUC_FRIENDS_TABLE . ' f ON (u.user_id = f.user2_id)
+				WHERE (b.ban_id IS NULL	OR b.ban_exclude = 1)
+					AND u.user_type IN (' . USER_NORMAL . ', ' . USER_FOUNDER . ')
+                    AND f.user1_id = ' . $user->data[ 'user_id' ] . '
+				ORDER BY f.friend_k desc';
+		$result = $db->sql_query_limit($sql, 10);
+
+		while ($row = $db->sql_fetchrow($result))
+		{
+				$friends_list .= '<span style="float:left;"><img src="' . $phpbb_root_path . 'styles/' . $user->style['style_path'] . '/theme/images/icon_profile.gif" width="16" height="16" alt="" /></span><span style="float:left; padding-left:5px; padding-top:2px;">' . get_username_string('full', $row['user_id'], $row['username'], $row['user_colour']) . '(' . $row[ 'friend_k' ] . ')' . '</span><span style="float: right;"></span><br style="clear: both" />';
+		}
+        $template->assign_vars(array( 'FRIENDS_LIST' => $friends_list ));
+		$db->sql_freeresult($result);
+        
+// --------------------------------- recommended block end -------------------------------------------------------------------------
+
+6.
+insert into root\includes\functions_mcp.php
+- after approx 501 		case 'viewlogs': ... break;
+
+
+        // nuc nuc    
+		case 'unreviewed_posts':
+
+
+			$visibility_const = ITEM_APPROVED;
+			$type = 'posts';
+			$default_key = 't';
+			$default_dir = 'd';
+			$where_sql .= ($topic_id) ? ' p.topic_id = ' . $topic_id . ' AND' : '';
+
+			$sql = 'SELECT COUNT(p.post_id) AS total
+				FROM ' . POSTS_TABLE . ' p, ' . TOPICS_TABLE . " t
+				$where_sql " . $db->sql_in_set('p.forum_id', ($forum_id) ? array($forum_id) : 
+                    array_intersect(get_forum_list('f_read'), get_forum_list('m_approve'))) . '
+					AND ' . $db->sql_in_set('p.post_visibility', $visibility_const) .'
+					AND t.topic_id = p.topic_id
+					AND t.topic_visibility <> p.post_visibility
+                    AND p.post_reviewed = 0
+                    ';
+
+			if ($min_time)
+			{
+				$sql .= ' AND post_time >= ' . $min_time;
+			}
+			break;
+
+		case 'unreviewed_topics':
+			$visibility_const = ITEM_APPROVED;
+			$type = 'topics';
+			$default_key = 't';
+			$default_dir = 'd';
+
+			$sql = 'SELECT COUNT(t.topic_id) AS total
+				FROM ' . TOPICS_TABLE . "t
+				$where_sql " . $db->sql_in_set('t.forum_id', ($forum_id) ? array($forum_id) : array_intersect(get_forum_list('f_read'), get_forum_list('m_approve'))) . '
+					AND ' . $db->sql_in_set('t.topic_visibility', $visibility_const) . 
+                    ' AND t.topic_posts_reviewed > 0'
+                    ;
+
+			if ($min_time)
+			{
+				$sql .= ' AND topic_time >= ' . $min_time;
+			}
+			break;
+        // nuc nuc end    
+
+7.
+insert into root\includes\ucp\ucp_register.php
+- after approx 379 	trigger_error('NO_USER', E_USER_ERROR);}
+
+                // nuc nuc nuc
+                // сюда попадает после заполнения формы регистрации
+                if(isset($_COOKIE['nuc_newer_sid'])) {
+                    $nuc_sid = $_COOKIE['nuc_newer_sid'];
+                    $sql = 'UPDATE ' . NUC_NEWERS_TABLE . ' SET user_id=' . 
+                        $user_id .  ' WHERE session_id=\'' . 
+                        $nuc_sid . '\'' . ' and user_id is null' .
+                        ';';
+                    $result = $db->sql_query($sql);
+                } 
+                // nuc nuc end 
+                  
+8.
+insert into root\language\en\common.php 
+- after approx 1414
+
+           //nuc nuc nuc		
+           'NUC_WELCOME'	      	=> 'News',
+	       'NUC_RECOM'				=> 'Recommended',
+	       'NUC_RECOM_FRIENDS'		=> 'Common iterests (rates)',
+	       'NUC_RECOM_LINKS'		=> 'Popular',
+	       'NUC_RECOM_FORUM'       	=> 'Interestig topics '
+
+9.
+insert into root\language\en\acp\common.php 
+- after approx 567
+
+    // nuc nuc
+   	'LOG_POST_ADD_CONCEPTS'		=> '<strong>Reviewed post</strong><br />» %s',
+    // nuc nuc end    
+
+10.
+insert into root\phpbb\session.php 
+- after approx 981
+
+        // nuc nuc очистить newers
+		$sql = 'DELETE FROM ' . NUC_NEWERS_TABLE . '
+			WHERE session_time < ' . (int) ($this->time_now - $config['session_length']);
+		$db->sql_query($sql);
+		$sql = 'DELETE FROM ' . NUC_FIND_TABLE . '
+			WHERE user_id IS NULL AND ndate < ' . (int) ($this->time_now - $config['session_length']);
+		$db->sql_query($sql);
+        // nuc nuc end
+
+11.
+insert into root\styles\prosilver\template\navbar_header.html 
+- after approx 111
+
+	<div class="panel bg1" style="margin-bottom: 0px">
+		<div class="inner"><span class="corners-top-inner"></span>
+			<div class="postbody" style="width: 100%">
+
+    <div class="inner-list" id="nuc_block"></div>
+    <!-- basket_block -->    
+    <div id="basket_block" style="display: none;">
+    <ul class="list_coll" id="basket" style="border: 1px solid blue; padding: 5px; margin-top: 10px;"></ul>
+    </div>    
+    <!-- basket_block end-->
+    
+    <!-- recom_block -->
+   	<ul class="topiclist bg1" >
+		<li><dl>
+			<dd style="border-left:0px; width:100%; margin-left: 10px;">
+			<table width="100%">
+			<tr>
+				<!-- IF .recom_topics --><td class="row1"><strong>{L_NUC_RECOM_FORUM}</strong></td><!-- ENDIF -->
+				<!-- IF FRIENDS_LIST --><td class="row1"><strong>{L_NUC_RECOM_FRIENDS}</strong></td><!-- ENDIF -->
+			</tr>
+			<tr>
+				<!-- IF .recom_topics -->
+				<td class="row1" style="width: 33%;" valign="top">
+					<span class="gensmall">
+					<!-- BEGIN recom_topics -->
+						<a href="{recom_topics.U_VIEW_TOPIC}" title="{recom_topics.FULL_TITLE}" target="_blank">{recom_topics.TITLE} </a><br />
+					<!-- END recom_topics -->
+					</span>
+				</td>
+				<!-- ENDIF -->
+				<!-- IF FRIENDS_LIST -->
+				<td class="row1" style="width: 33%;" valign="top">
+                    {FRIENDS_LIST}
+				</td>
+				<!-- ENDIF -->
+			</tr>
+			</table>
+			</dd>
+		</dl></li>
+	</ul>
+    <!-- recom_block end-->
+    
+</div></div></div>    
+
+<hr />    
+
+	</div>
+</div>
+
+<script type='text/javascript' src="js/jquery-1.8.2.min.js"></script>
+<script type='text/javascript' src="js/jquery-liColl.js"> </script>
+<script type='text/javascript' src="js/ajax-loader.js"></script>
+<script type='text/javascript' src="js/jquery.session.js"></script>
+<script type='text/javascript' src="js/jquery.cookie.js"></script>
+
+<script>
+  
+  var t = 0;
+  var cnt = $('.list_coll').length;
+  var can_click = true;
+  var timeout = false;
+  var loading = false;
+
+  
+  
+    //первый показ
+    function ShowConcepts() {
+        console.log('shownuc');
+        $.get("shownuc.php?page=0",function(recdata,status){
+            console.log('$get(shownuc.php');            
+                if( status=='success' ){
+                    $('#nuc_block').replaceWith(recdata);
+                    rest_js();
+                    console.log('shownuc end');   
+                }
+            });
+    } 
+
+    function NewHeight (e) {
+        if (e.attr('class')!='list_coll') return;
+        e.each(function(i){
+            var item = jQuery(this);
+            // найти мах высоту div.cosl_s списка
+            var h = 0;
+            item.children('.coll_s').each(function(){
+                var t = jQuery(this).height();
+                if(t>h) h=t;
+            });
+            //добавить высоту голосовалки
+            item.height(function(i,val){
+                return h + $('.voteline').height();
+            });
+        });
+    }
+    
+    function dump(obj) {
+    var out = "";
+    if(obj && typeof(obj) == "object"){
+        out += "object name = " + obj.name + " ->\n";
+        for (var i in obj) {
+            out += i + ": " + obj[i] + "\n";
+        }
+    } else {
+        out = obj;
+    }
+    console.log('dump '.out);
+    }
+    
+//
+    
+  function rest_js () {
+    console.log('rest_js');
+    $.noConflict(true); //ебать бился в пене 2 недели с этим уебанством вашу мать где-то еще джейуквери подключено
+    $('.list_coll').liColl({
+        c_unit: '%', // '%' или 'px' При указании '%' — ширина 'c_width' игнорируется
+        n_coll: 3,    //колличество колонок
+        //c_width: 250, //Ширина колонок в 'px'
+        p_left: 0    //отступ слева %           
+    });
+    
+    
+    NewHeight($('.list_coll'));
+    
+    AjaxLoader(); //загрузить бегунок
+    
+
+    $('#meet_button').live( 'click',
+        function(event){
+            var par = $('form').serialize();
+            $.get('meet.php?'+par,function(recdata,status){
+                eval('var obj='+recdata);
+                //dump(obj);
+                if( status=='success' ){
+                    //alert(obj.ncounter);
+                } else alert("поиска нет");
+            });            
+            event.preventDefault();    
+    });            
+
+    $('.nuclink').live( 'click',
+        function(event){
+            var qry = $(this).attr('data-qry');
+            console.log('nuclink live click ');
+            $.get(qry,function(recdata,status){
+                eval('var obj='+recdata);
+                //dump(obj);
+                if( status=='success' ){
+                    //alert(obj.ncounter);
+                } else alert(".nuclink error");
+            });            
+            //таки перейти по ссылке после записи в бд    
+    });            
+    
+    $('#location-button').live( 'click',
+        function(event){
+//--------------------- тут палево - ajax не грузит теги <script - танцуем с бубном ---------------------------
+// фильтруем скрипты и засовываем напрямую в документ
+ $.ajax({
+    url: './geo/location.php',
+    type: 'GET',
+    success: function(data) {
+
+        var dom = $(data);
+
+        dom.filter('script').each(function(){
+            if(this.src) {
+                var script = document.createElement('script'), i, attrName, attrValue, attrs = this.attributes;
+                for(i = 0; i < attrs.length; i++) {
+                    attrName = attrs[i].name;
+                    attrValue = attrs[i].value;
+                    script[attrName] = attrValue;
+                }
+                document.body.appendChild(script);
+            } else {
+                $.globalEval(this.text || this.textContent || this.innerHTML || '');
+            }
+        });
+
+        $('.geo').html(data);
+        $('#exampleModal').arcticmodal({
+            afterClose: function(data, el) {
+                $('#SLocation').val($('#city :selected').text()+' ,'+$('#area :selected').text())
+                .attr('data-id',$('#city :selected').val());
+                // icity - для  
+                $('#icity').val($('#SLocation').attr('data-id'));
+
+            }    
+        });
+    }
+});
+// ---------------------------------------------------------------------------------------------------------------            
+            event.preventDefault();
+        }
+    );
+
+    $('.nuclist').hover( 
+        function() { $(this).find('.voteline').fadeTo(500,1); }, 
+        function() { $(this).find('.voteline').hide(); 
+     }); //hover
+
+    $('.nuc').hover( 
+        function() { $(this).attr('src','{T_SMILIES_PATH}'+$(this).attr('id')+'_hvr.png' ); }, 
+        function() { $(this).attr('src','{T_SMILIES_PATH}'+$(this).attr('id')+'.png');
+     }); //hover
+
+    $('div#nuc_navigator a').live( 'click',
+        function(event){
+            var a = $(this);
+            $.get(a.attr('href'),function(recdata,status){
+                if( status=='success' ){
+                    $('#nuc_block').replaceWith(recdata);
+                    rest_js();
+                    //$('#news').remove(); 
+                    //updateColl($('.list_coll'));
+                    //NewHeight($('.list_coll'));
+                }
+            });
+        event.preventDefault();
+   });
+    
+    // клик по смайлику nuc=1..4
+    $('.nuc').live( 'click', function(event){
+        
+        var that = $(this);
+        
+        if((timeout===false)&&(loading===false)){
+         
+        $('#loadingDiv').show(); //показать бегунок
+        var id = $(this).attr('id'); // ид
+        var line = that.attr('data-id'); // ид линейки 
+        var qry = that.attr('data-qry'); //ссылка для ajax.get
+        var btns = $('.nuc[data-id='+line+']');//линейка смайликов
+        var par = that.closest('.nuclist'); //элемент списка
+        var conc = par.find('.nuclink'); //сам концепт
+        var forum = par.find('#forum_link'); //обсуждение
+        var sml = that; //смайлик
+        var papa_ul = $('#news'); //список
+        var basket =  $('#basket'); //список
+        var basket_block =  $('#basket_block'); //список
+        var vot = that.find('.voteline'); //выпадающая байда
+        
+        
+        // высветить кликнутый
+        that.fadeTo(300,1);
+        // подгасить линейку кроме кликаемого
+        btns.not(this).fadeTo(300,0.8);
+          
+          loading = true;
+          
+          $.get(qry,function(recdata,status){
+            console.log(recdata);
+            var obj = jQuery.parseJSON( recdata );
+            
+            //eval('var obj='+recdata);
+            if( status=='success' ){
+                console.log(obj.ncounter);
+                // только для новых пользователей
+                if((obj.done===true) && (!$('#register').is(":visible"))) { 
+                    loading = false;
+                    $('#register').show(); 
+                    $('#login_box_reg').show();
+                    $('.nuc3').hide();
+                    $('#welcome_msg').hide();
+                    // сообщение не выдается
+                    //alert('Вы можете зарегистрироваться.');
+ 
+                } 
+                // активировать ссылку и обсуждение
+                //заменить id чтобы ссылка была с hover (см css)
+                conc.attr('id','hvr');
+                // клик по ссылке: устанавливает nuc=0 (data-qry) 
+                // вернуть цвет фона
+                par.css({ "background-color":$('.list_coll').css("background-color")});
+                // прорисовать li на всякий случай
+                par.fadeTo(300,1);
+                // делаем ссылку  
+                conc.attr('href',conc.attr('data-hr'));
+                // показать обсуждение - было скрыто
+                forum.show();
+                //чек
+                sml.attr('data-checked','1');
+                // играемся с эффектами
+                if ((id === 'nuc2')||(id === 'nuc4')) {  // удаляем
+                      par.remove();
+                } else {
+                    basket_block.show();
+                    var temp = par.detach();
+                    if (id === 'nuc1') {
+                        temp.css({ "background-color":"#E0F4E1"});
+                        temp.prependTo(basket);
+                    } else
+                    if (id === 'nuc3') { // уводим в конец списка
+                        temp.css({ "background-color":"#E5E5E5"}); 
+                        temp.appendTo(basket);
+                    }
+                    // скрыть голосовалку
+                    temp.find('.voteline').hide();
+                    updateColl($('.list_coll'));
+                    NewHeight($('.list_coll'));
+                } // if nuc=2
+                    
+            } else { 
+                $('#concept_id').text('Нет связи с сервером.').fadeTo(300,1);
+                console.log(obj.ncounter);
+                alert('Нет связи с сервером.');
+            }
+            loading = false; 
+                
+          }); //get
+            
+          $('#loadingDiv').hide();
+
+       }     
+  });
+}; // rest_js
+
+$(document).ready(function () {
+   console.log('ready'); 
+   ShowConcepts(); 
+});
+
+//var root = window.addEventListener || window.attachEvent ? window : document.addEventListener ? document : null;
+//if(root) {
+  //root.onbeforeunload=function () { 
+     //$.get($('#button_exit').attr('value'));
+     //jQuery.removeCookie('nuc_navigator');
+  //};
+//};
+
+//window.unload(  function(){  
+  //jQuery.session.remove('nuc_navigator');
+  //jQuery.session.set('nuc_navigator', '10');  
+  //jQuery.cookie('nuc_navigator', null);
+  //jQuery.removeCookie('nuc_navigator');
+  //alert('lolo');
+  //     $.get($('#button_exit').attr('value'));
+ 
+//});
+
+
+  // нет концептов - нет смайликов
+  if(cnt<=0) $('.nuc').fadeTo(300,0.6);
+
+</script>
+
+12.
+insert into root\styles\prosilver\theme\common.css 
+- after approx 1306
+
+/* nuc nuc
+---------------------------------------- */
+.concept_content {
+    font-style: oblique;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 4px;
+    margin-left: 10px;
+    
+}
+
+.nuclist {
+    font-size: 12px;
+	margin-bottom: 4px;
+    margin-left: 10px;
+     list-style-type: none; /* Убираем маркеры */
+}
+
+.nuclist:hover {
+    background-color: #f6f6f6;
+    border-color: yellow;
+    background-position: center;
+    color: rgb(16, 82, 137);
+}
+
+.nuclink {
+    color: rgb(16, 82, 137);
+    
+} 
+
+.nuclink#no_hvr:hover {
+    text-decoration: none;
+    color: rgb(16, 82, 137);
+} 
+
+.nuclink#hvr {
+    font-style: oblique;
+    font-weight: bold;
+    text-decoration: underline;
+    color: rgb(16, 82, 137);
+    
+} 
+
+.nuc2 {
+    vertical-align: middle;
+    /* это чтобы картинка не прыгала при hover */
+	margin-left: 1px;
+	margin-top: 1px;
+    margin-bottom: 1px;
+    margin-right: 1px;    
+}
+
+.nuc2:hover {
+    
+    cursor: pointer;
+    border: black;
+    border-style: inset;
+    border-width: 1px;
+    border-collapse: separate;
+    border-spacing: 1px;
+    /* это чтобы картинка не прыгала при hover */
+	margin-left: 0px;
+	margin-top: 0px;  
+    margin-bottom: 0px;
+    margin-right: 0px;  
+} 
+
+.nuc2[data-checked="1"] {
+    
+    cursor: pointer;
+    border: black;
+    border-style: inset;
+    border-width: 1px;
+    border-collapse: separate;
+    border-spacing: 1px;
+    /* это чтобы картинка не прыгала при hover */
+	margin-left: 0px;
+	margin-top: 0px;  
+    margin-bottom: 0px;
+    margin-right: 0px;
+    background-color: #F0F385;
+      
+} 
+
+.nuc {
+    vertical-align: middle;
+	margin-left: 1px;
+	margin-top: 3px;
+    margin-bottom: 1px;
+    margin-right: 1px;    
+}
+
+.nuc:hover {
+    cursor: pointer;  
+    color: black; 
+    background-position: center;
+} 
+
+#nucbtn {
+    cursor: pointer;  
+    font-weight: bold;
+    font-size: 10px;
+    text-align: center;
+    background-color: #C4CAF7;
+}
+
+.nucbtn2 {
+}
+
+.nucbtn2:hover {
+    cursor: pointer;  
+    
+}
+
+.clicked { /*класс кликнутый*/
+        background-color: yellow;
+   
+   }
+   
+.edt {  
+    width: 320px; 
+        height: 100%; 
+        border-style: none; 
+        text-transform: lowercase; 
+        padding: 10px;
+         
+}
+
+.word { cursor: pointer; }
+/* nuc nuc end
+---------------------------------------- */
+
+
+
+
+ 
+
+
+
+
+

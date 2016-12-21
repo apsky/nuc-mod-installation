@@ -1,0 +1,205 @@
+<!-- INCLUDE mcp_header.html -->
+
+<form id="mcp" method="post" action="{S_MCP_ACTION}">
+
+<fieldset class="forum-selection">
+	<label for="fo">{L_FORUM}{L_COLON} <select name="f" id="fo">{S_FORUM_OPTIONS}</select></label>
+	<input type="submit" name="sort" value="{L_GO}" class="button2" />
+	{S_FORM_TOKEN}
+</fieldset>
+
+<h2>{L_TITLE}</h2>
+
+<div class="panel">
+	<div class="inner">
+
+	<p>{L_EXPLAIN}</p>
+
+	<!-- IF .postrow -->
+		<div class="action-bar top">
+			<div class="pagination">
+				{TOTAL}
+				<!-- IF .pagination --> 
+					<!-- INCLUDE pagination.html -->
+				<!-- ELSE --> 
+					 &bull; {PAGE_NUMBER}
+				<!-- ENDIF -->
+			</div>
+		</div>
+
+		<ul class="topiclist missing-column">
+			<li class="header">
+				<dl>
+					<dt><div class="list-inner"><!-- IF S_TOPICS -->{L_TOPIC}<!-- ELSE -->{L_POST}<!-- ENDIF --></div></dt>
+					<dd class="moderation"><span><!-- IF not S_TOPICS -->{L_TOPIC} &amp; <!-- ENDIF -->{L_FORUM}</span></dd>
+					<dd class="mark">{L_MARK}</dd>
+				</dl>
+			</li>
+			</ul>
+			<ul class="topiclist cplist missing-column responsive-show-all">
+
+		<!-- BEGIN postrow -->
+
+		<!-- IF postrow.S_DELETED_TOPIC -->
+			<li><p class="notopics">{L_DELETED_TOPIC}</p></li>
+		<!-- ELSE -->
+
+		<li class="row<!-- IF postrow.S_ROW_COUNT is odd --> bg1<!-- ELSE --> bg2<!-- ENDIF -->">
+			<dl>
+				<dt>
+					<div class="list-inner">
+						<div class="dat">{postrow.POST_SUBJECT}</div> {postrow.ATTACH_ICON_IMG}<br />
+						<span>{L_POSTED} {L_POST_BY_AUTHOR} {postrow.POST_AUTHOR_FULL} &raquo; {postrow.POST_TIME}</span>
+					</div>
+				</dt>
+				<dd class="moderation">
+					<span>
+						<!-- IF S_TOPICS --><br /><!-- ELSE -->{L_TOPIC}{L_COLON} <a href="{postrow.U_TOPIC}">{postrow.TOPIC_TITLE}</a> <br /><!-- ENDIF -->
+						{L_FORUM}{L_COLON} <a href="{postrow.U_VIEWFORUM}">{postrow.FORUM_NAME}</a>
+					</span>
+				</dd>
+
+		 		<dd >
+					<!-- IF S_TOPICS -->
+                        <textarea class="edt"  name="topic_id_list[{postrow.TOPIC_ID}]"></textarea>
+					<!-- ELSE -->
+                        <textarea class="edt" name="post_id_list[{postrow.POST_ID}]"></textarea>
+					<!-- ENDIF -->
+
+				</dd>
+			</dl>
+		</li>
+		<!-- ENDIF -->
+		<!-- END postrow -->
+		</ul>
+
+		<fieldset class="display-options">
+			<label>{L_DISPLAY_POSTS}{L_COLON} {S_SELECT_SORT_DAYS}</label>
+			<label>{L_SORT_BY} {S_SELECT_SORT_KEY}</label><label>{S_SELECT_SORT_DIR}</label>
+			<!-- IF TOPIC_ID --><label><input type="checkbox" class="radio" name="t" value="{TOPIC_ID}" checked="checked" />&nbsp; <strong>{L_ONLY_TOPIC}</strong></label><!-- ENDIF -->
+			<input type="submit" name="sort" value="{L_GO}" class="button2" />
+		</fieldset>
+
+		<hr />
+
+		<div class="action-bar bottom">
+			<div class="pagination">
+				{TOTAL}
+				<!-- IF .pagination --> 
+					<!-- INCLUDE pagination.html -->
+				<!-- ELSE --> 
+					 &bull; {PAGE_NUMBER}
+				<!-- ENDIF -->
+			</div>
+		</div>
+
+	<!-- ELSE -->
+		<p class="notopics"><strong>
+			<!-- IF S_RESTORE -->
+				<!-- IF S_TOPICS -->{L_NO_TOPICS_DELETED}<!-- ELSE -->{L_NO_POSTS_DELETED}<!-- ENDIF -->
+			<!-- ELSE -->
+				<!-- IF S_TOPICS -->{L_NO_TOPICS_QUEUE}<!-- ELSE -->{L_NO_POSTS_QUEUE}<!-- ENDIF -->
+			<!-- ENDIF -->
+		</strong></p>
+	<!-- ENDIF -->
+
+	</div>
+</div>
+
+<!-- IF .postrow -->
+	<fieldset class="display-actions">
+		<!-- IF S_RESTORE -->
+		<input class="button2" type="submit" name="action[delete]" value="{L_DELETE}" />&nbsp;
+		<input class="button1" type="submit" name="action[restore]" value="{L_RESTORE}" />
+		<!-- ELSE -->
+		<input class="button2" type="submit" name="reset" value="{L_RESET}" />&nbsp;
+		<input class="button1" type="submit" name="action[add_concepts]" value="{L_SUBMIT}" />
+		<!-- ENDIF -->
+		<div>
+			<!-- IF S_TOPICS -->
+				<a href="#" onclick="marklist('mcp', 'topic_id_list', true); return false;">{L_MARK_ALL}</a> :: <a href="#" onclick="marklist('mcp', 'topic_id_list', false); return false;">{L_UNMARK_ALL}</a>
+			<!-- ELSE -->
+				<a href="#" onclick="marklist('mcp', 'post_id_list', true); return false;">{L_MARK_ALL}</a> :: <a href="#" onclick="marklist('mcp', 'post_id_list', false); return false;">{L_UNMARK_ALL}</a>
+			<!-- ENDIF -->
+		</div>
+	</fieldset>
+<!-- ENDIF -->
+</form>
+
+<!-- INCLUDE mcp_footer.html -->
+
+<script src="js/jquery-1.8.2.min.js"></script>
+
+<script>
+
+$(document).ready(function()
+{
+    //===========================================================================
+    // подсветка (ховер) кликнутых слов, выделение , смешение их без конфликта и
+    // копирование в соседний инпут
+    // ==========================================================================
+    var selected = false; // триггер для разделения селекткд и ховер
+    // обернуть слова в тег span
+    $('.dat').each(function () {
+        this.innerHTML = this.innerHTML.replace(/(<.+?>)*([^<>\s,.]+[\s,.]*)(<.+?>)*/g,'$1<span class="word">$2</span>$3');
+    });
+    
+    
+    // клик по слову - toggle в желтый цвет и запись в input
+    $('.word').live("click",function(event)
+    {   //alert(selected+'  kjnkn');
+        if(selected) return;
+        event.stopPropagation();
+        $(this).toggleClass('clicked'); 
+        var par = $(this).parents('.row'); // найти строку таблицы
+        var dest = par.find('.edt'); // найти класс редактора в строке
+        var tx = $(this).text().trim().toLowerCase();
+        var old = dest.val();
+        var news;
+        if ($(this).hasClass('clicked')) {
+            news = old + tx + ' ';
+        } else {  
+            news = old.replace( tx + ' ', '' );
+        }
+        dest.val(news);
+    });
+    
+    // выделенный текст тоже туда
+    
+    // найти выделенный текст
+    if (!window.x) { x = {}; }
+    x.Selector = {};
+    x.Selector.getSelected = function() {
+        var t = '';
+        if (window.getSelection) {
+            t = window.getSelection();
+        } else if (document.getSelection) {
+            t = document.getSelection();
+        } else if (document.selection) {
+            t = document.selection.createRange().text;
+        }
+        return t;
+    }
+    // закинуть в инпут
+    $('.dat').mouseup(function() {
+        var mytext = x.Selector.getSelected().toString(); // ПАЛЕВО! Это неизвестный объект.Если не перевести в стринг то жопа.
+        // если есть выделение
+        if(mytext.length>0) {
+            selected = true; // триггер для разделения селекткд и ховер
+            var par = $(this).parents('.row'); // найти строку таблицы
+            var d = par.find('.edt'); // найти класс редактора в строке
+            //alert(selected+'  --'+mytext.length+'--');
+            var old = d.val();
+            d.val(old+mytext+' ');
+            //d.val( d.val() + mytext + ' ' ); // добавить кликнутые слова
+        } else {
+            // тогда подсветка
+            selected = false;
+        }
+    });
+    
+// ==============================================================================================================================    
+});
+//alert("kuku");
+
+</script>
