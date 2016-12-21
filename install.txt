@@ -4,8 +4,133 @@ nuc installation
 copy nuc_mod_install
 
 2.
+Alter database with SQL query:
+
+SET FOREIGN_KEY_CHECKS=0;
+
+CREATE TABLE `phpbb_nuc_all_concepts` (
+  concept_id int(11) NOT NULL AUTO_INCREMENT,
+  concept varchar(255) DEFAULT NULL,
+  ndate int(11) DEFAULT NULL,
+  hash varchar(40) DEFAULT NULL,
+  irnd int(11) DEFAULT NULL,
+  rank int(11) DEFAULT '100',
+  link_id int(11) DEFAULT NULL,
+  forum_id int(11) DEFAULT NULL,
+  topic_id int(11) DEFAULT NULL,
+  post_id int(11) DEFAULT NULL,
+  owner_id int(11) DEFAULT NULL,
+  count int(11) DEFAULT NULL,
+  last_post_time int(11) DEFAULT NULL,
+  PRIMARY KEY (concept_id)
+) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_concepts (
+  id int(11) NOT NULL AUTO_INCREMENT,
+  concept_id int(11) DEFAULT NULL,
+  concept varchar(255) DEFAULT NULL,
+  irnd int(11) DEFAULT NULL,
+  user_id int(11) DEFAULT NULL,
+  ndate int(11) DEFAULT NULL,
+  forum_id int(11) DEFAULT NULL,
+  topic_id int(11) DEFAULT NULL,
+  post_id int(11) DEFAULT NULL,
+  link_url varchar(255) DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=MyISAM AUTO_INCREMENT=1771 DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_dna (
+  id int(11) NOT NULL AUTO_INCREMENT,
+  concept_id int(11) DEFAULT NULL,
+  user_id int(11) DEFAULT NULL,
+  nuc tinyint(4) DEFAULT '0',
+  ncounter int(11) DEFAULT NULL,
+  ndate int(11) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY inuc (concept_id,user_id,nuc) USING BTREE
+) ENGINE=MyISAM AUTO_INCREMENT=17 DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_friends (
+  user1_id int(11) DEFAULT NULL,
+  user2_id int(11) DEFAULT NULL,
+  friend_k float(8,2) DEFAULT NULL,
+  UNIQUE KEY uniq_para (user1_id,user2_id) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_info (
+  id int(11) NOT NULL AUTO_INCREMENT,
+  name varchar(25) NOT NULL,
+  value varchar(25) DEFAULT NULL,
+  comment varchar(255) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY name_indx (name) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_newers (
+  session_id char(32) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT '',
+  user_id int(11) DEFAULT NULL,
+  concept_id int(11) DEFAULT NULL,
+  nuc tinyint(4) DEFAULT '0',
+  session_time int(11) DEFAULT NULL,
+  UNIQUE KEY inuc (session_id,concept_id) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE phpbb_nuc_recom_topics (
+  user_id int(11) DEFAULT NULL,
+  ind tinyint(4) DEFAULT NULL,
+  forum_id int(11) DEFAULT NULL,
+  topic_id int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
+
+CREATE TABLE phpbb_nuc_topics_track (
+  user_id mediumint(8) unsigned NOT NULL DEFAULT '0',
+  topic_id mediumint(8) unsigned NOT NULL DEFAULT '0',
+  forum_id mediumint(8) unsigned NOT NULL DEFAULT '0',
+  mark_time int(11) unsigned NOT NULL DEFAULT '0',
+  number mediumint(8) DEFAULT NULL,
+  UNIQUE KEY ihd (user_id,topic_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+ALTER TABLE phpbb_forums
+    ADD forum_posts_reviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after forum_topics_softdeleted,
+    ADD forum_posts_unreviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after forum_posts_reviewed,
+    ADD forum_topics_reviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after forum_posts_unreviewed,
+    ADD forum_topics_unreviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after forum_topics_reviewed;
+
+ALTER TABLE phpbb_posts
+  ADD `post_reviewed` tinyint(1) unsigned NOT NULL DEFAULT '0' after post_delete_user;
+
+ALTER TABLE phpbb_topics
+  ADD topic_posts_reviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after topic_posts_softdeleted,
+  ADD topic_posts_unreviewed mediumint(8) unsigned NOT NULL DEFAULT '0' after topic_posts_reviewed;
+
+CREATE VIEW posts_view AS select phpbb_posts.poster_id AS poster_id,phpbb_posts.topic_id AS topic_id,count(0) AS number,
+max(phpbb_posts.post_time) AS post_time from phpbb_posts group by phpbb_posts.poster_id,phpbb_posts.topic_id ;
+
+CREATE VIEW forum_interests_view AS 
+select t.user_id AS user_id,t.topic_id AS topic_id,t.number AS a,p.number AS b,
+((0.8 * t.number) + ifnull(p.number,0)) AS interes_k,t.mark_time AS mark_time 
+from (phpbb_nuc_topics_track t join posts_view p on(((p.poster_id = t.user_id) and (p.topic_id = t.topic_id)))) 
+group by t.user_id,t.topic_id ;
+
+CREATE VIEW friends_view AS select dna1.user_id AS user1_id,dna2.user_id AS user2_id,
+sum((((case dna2.nuc when 0 then 1.0 when 1 then 1.0 when 2 then 0.8 when 3 then 0.4 when 4 then 0.1 end) * dna2.ncounter) * dna1.ncounter)) 
+AS friend_k 
+from (phpbb_nuc_dna dna1 join phpbb_nuc_dna dna2 on(((dna1.concept_id = dna2.concept_id) and (dna1.nuc = dna2.nuc)))) 
+where (dna1.user_id <> dna2.user_id) 
+group by dna1.user_id,dna2.user_id 
+order by sum((((case dna2.nuc when 0 then 1.0 when 1 then 1.0 when 2 then 0.8 when 3 then 0.4 when 4 then 0.1 end) * dna2.ncounter) * 
+dna1.ncounter)) ;
+
+CREATE VIEW recom_topics_view AS select friends_view.user1_id AS user_id,forum_interests_view.topic_id AS topic_id 
+from (friends_view join forum_interests_view on((friends_view.user2_id = forum_interests_view.user_id))) 
+group by friends_view.user1_id,forum_interests_view.topic_id 
+order by friends_view.friend_k desc,forum_interests_view.interes_k desc ;
+
+xxx.
 insert into root/viewtopic.php
-approx line 2105
+after approx line 2103 (// Update the attachment download counts }}})
+
 ///////////////// nuc nuc nuc //////////////////////////////////////////
 // update nuc topicks track
 if ($user->data['is_registered'])
@@ -25,7 +150,7 @@ if ($user->data['is_registered'])
 }
 //////////////////////////nuc end /////////////////////////////////////////////// 
 
-3.
+xxx.
 insert into root\includes\constants.php
 
 - after      define('ITEM_REAPPROVE', 3); // => has been edited and needs to be re-approved
@@ -49,7 +174,7 @@ define('NUC_FIND_TABLE',        	$table_prefix . 'nuc_find');
 define('NUC_INFO_TABLE',        	$table_prefix . 'nuc_info');
 // nuc nuc end
 
-4.
+xxx.
 insert into root\includes\functions.php
 
 function trunc_limit(&$title, $limit = 0)
@@ -65,9 +190,9 @@ function trunc_limit(&$title, $limit = 0)
 	}
 }
 
-5.
+xxx.
 insert into root\includes\functions_display.php
-- after approx 718  return array($active_forum_ary, $forum_moderators);
+- after approx 718  (return array($active_forum_ary, $forum_moderators); })
 
 //nuc nuc nuc
 // ---------------------------------------- recommended block ---------------------------------------------------------------------------------
@@ -119,9 +244,9 @@ insert into root\includes\functions_display.php
         
 // --------------------------------- recommended block end -------------------------------------------------------------------------
 
-6.
+xxx.
 insert into root\includes\functions_mcp.php
-- after approx 501 		case 'viewlogs': ... break;
+- after approx 501 		(case 'viewlogs': ... break;)
 
 
         // nuc nuc    
@@ -170,9 +295,9 @@ insert into root\includes\functions_mcp.php
 			break;
         // nuc nuc end    
 
-7.
+xxx.
 insert into root\includes\ucp\ucp_register.php
-- after approx 379 	trigger_error('NO_USER', E_USER_ERROR);}
+- after approx 379 	(trigger_error('NO_USER', E_USER_ERROR);})
 
                 // nuc nuc nuc
                 // сюда попадает после заполнения формы регистрации
@@ -186,7 +311,7 @@ insert into root\includes\ucp\ucp_register.php
                 } 
                 // nuc nuc end 
                   
-8.
+xxx.
 insert into root\language\en\common.php 
 - after approx 1414
 
@@ -197,7 +322,7 @@ insert into root\language\en\common.php
 	       'NUC_RECOM_LINKS'		=> 'Popular',
 	       'NUC_RECOM_FORUM'       	=> 'Interestig topics '
 
-9.
+xxx.
 insert into root\language\en\acp\common.php 
 - after approx 567
 
@@ -205,7 +330,21 @@ insert into root\language\en\acp\common.php
    	'LOG_POST_ADD_CONCEPTS'		=> '<strong>Reviewed post</strong><br />» %s',
     // nuc nuc end    
 
-10.
+xxx.
+insert into root\language\en\mcp.php 
+- after approx 208
+
+    // nuc nuc
+	'MCP_CONCEPTS'								=> 'Review',
+	'MCP_CONCEPTS_UNREVIEWED'					=> 'Unreviewed',
+	'MCP_CONCEPTS_UNREVIEWED_POSTS'				=> 'Posts',
+	'MCP_CONCEPTS_UNREVIEWED_POSTS_EXPLAIN'		=> 'This is a list of all posts(approved) which require reviewing before they will be visible to users.',
+	'MCP_CONCEPTS_UNREVIEWED_TOPICS'			=> 'Topics',
+	'MCP_CONCEPTS_UNREVIEWED_TOPICS_EXPLAIN'	=> 'This is a list of all topics(approved) which require reviewing before they will be visible to users.',
+    // nuc nuc end
+
+
+xxx.
 insert into root\phpbb\session.php 
 - after approx 981
 
@@ -218,7 +357,7 @@ insert into root\phpbb\session.php
 		$db->sql_query($sql);
         // nuc nuc end
 
-11.
+xxx.
 insert into root\styles\prosilver\template\navbar_header.html 
 - after approx 111
 
@@ -295,7 +434,6 @@ insert into root\styles\prosilver\template\navbar_header.html
                 if( status=='success' ){
                     $('#nuc_block').replaceWith(recdata);
                     rest_js();
-                    console.log('shownuc end');   
                 }
             });
     } 
@@ -334,7 +472,7 @@ insert into root\styles\prosilver\template\navbar_header.html
     
   function rest_js () {
     console.log('rest_js');
-    $.noConflict(true); //ебать бился в пене 2 недели с этим уебанством вашу мать где-то еще джейуквери подключено
+    $.noConflict(true); //ебать бился в пене 2 недели с этим уебанством где-то еще джейквери подключено
     $('.list_coll').liColl({
         c_unit: '%', // '%' или 'px' При указании '%' — ширина 'c_width' игнорируется
         n_coll: 3,    //колличество колонок
@@ -348,74 +486,17 @@ insert into root\styles\prosilver\template\navbar_header.html
     AjaxLoader(); //загрузить бегунок
     
 
-    $('#meet_button').live( 'click',
-        function(event){
-            var par = $('form').serialize();
-            $.get('meet.php?'+par,function(recdata,status){
-                eval('var obj='+recdata);
-                //dump(obj);
-                if( status=='success' ){
-                    //alert(obj.ncounter);
-                } else alert("поиска нет");
-            });            
-            event.preventDefault();    
-    });            
-
     $('.nuclink').live( 'click',
         function(event){
             var qry = $(this).attr('data-qry');
             console.log('nuclink live click ');
             $.get(qry,function(recdata,status){
                 eval('var obj='+recdata);
-                //dump(obj);
                 if( status=='success' ){
-                    //alert(obj.ncounter);
                 } else alert(".nuclink error");
             });            
             //таки перейти по ссылке после записи в бд    
     });            
-    
-    $('#location-button').live( 'click',
-        function(event){
-//--------------------- тут палево - ajax не грузит теги <script - танцуем с бубном ---------------------------
-// фильтруем скрипты и засовываем напрямую в документ
- $.ajax({
-    url: './geo/location.php',
-    type: 'GET',
-    success: function(data) {
-
-        var dom = $(data);
-
-        dom.filter('script').each(function(){
-            if(this.src) {
-                var script = document.createElement('script'), i, attrName, attrValue, attrs = this.attributes;
-                for(i = 0; i < attrs.length; i++) {
-                    attrName = attrs[i].name;
-                    attrValue = attrs[i].value;
-                    script[attrName] = attrValue;
-                }
-                document.body.appendChild(script);
-            } else {
-                $.globalEval(this.text || this.textContent || this.innerHTML || '');
-            }
-        });
-
-        $('.geo').html(data);
-        $('#exampleModal').arcticmodal({
-            afterClose: function(data, el) {
-                $('#SLocation').val($('#city :selected').text()+' ,'+$('#area :selected').text())
-                .attr('data-id',$('#city :selected').val());
-                // icity - для  
-                $('#icity').val($('#SLocation').attr('data-id'));
-
-            }    
-        });
-    }
-});
-// ---------------------------------------------------------------------------------------------------------------            
-            event.preventDefault();
-        }
-    );
 
     $('.nuclist').hover( 
         function() { $(this).find('.voteline').fadeTo(500,1); }, 
@@ -434,9 +515,6 @@ insert into root\styles\prosilver\template\navbar_header.html
                 if( status=='success' ){
                     $('#nuc_block').replaceWith(recdata);
                     rest_js();
-                    //$('#news').remove(); 
-                    //updateColl($('.list_coll'));
-                    //NewHeight($('.list_coll'));
                 }
             });
         event.preventDefault();
@@ -472,12 +550,9 @@ insert into root\styles\prosilver\template\navbar_header.html
           loading = true;
           
           $.get(qry,function(recdata,status){
-            console.log(recdata);
             var obj = jQuery.parseJSON( recdata );
-            
             //eval('var obj='+recdata);
             if( status=='success' ){
-                console.log(obj.ncounter);
                 // только для новых пользователей
                 if((obj.done===true) && (!$('#register').is(":visible"))) { 
                     loading = false;
@@ -486,7 +561,6 @@ insert into root\styles\prosilver\template\navbar_header.html
                     $('.nuc3').hide();
                     $('#welcome_msg').hide();
                     // сообщение не выдается
-                    //alert('Вы можете зарегистрироваться.');
  
                 } 
                 // активировать ссылку и обсуждение
@@ -539,35 +613,15 @@ insert into root\styles\prosilver\template\navbar_header.html
 }; // rest_js
 
 $(document).ready(function () {
-   console.log('ready'); 
    ShowConcepts(); 
 });
-
-//var root = window.addEventListener || window.attachEvent ? window : document.addEventListener ? document : null;
-//if(root) {
-  //root.onbeforeunload=function () { 
-     //$.get($('#button_exit').attr('value'));
-     //jQuery.removeCookie('nuc_navigator');
-  //};
-//};
-
-//window.unload(  function(){  
-  //jQuery.session.remove('nuc_navigator');
-  //jQuery.session.set('nuc_navigator', '10');  
-  //jQuery.cookie('nuc_navigator', null);
-  //jQuery.removeCookie('nuc_navigator');
-  //alert('lolo');
-  //     $.get($('#button_exit').attr('value'));
- 
-//});
-
 
   // нет концептов - нет смайликов
   if(cnt<=0) $('.nuc').fadeTo(300,0.6);
 
 </script>
 
-12.
+xxx.
 insert into root\styles\prosilver\theme\common.css 
 - after approx 1306
 
@@ -703,10 +757,19 @@ insert into root\styles\prosilver\theme\common.css
 /* nuc nuc end
 ---------------------------------------- */
 
+xxx.
+Add a Review Tab to the Moderation Control Panel
+
+Go to Administration Control Panel > System > Module Management : Moderation Control Panel
+This will bring you to the list of top level categories for the MCP. (i.e. the Tabs)
+Add a new tab: type "Review" in the Tab name in the lower left-hand input field, and click Create New Module.
+When you reach the options screen for your new tab/module, be sure to select type: Category and No Parent -- Module enabled: Yes.
+Add a new item in "Review": choose "mcp_concepts->topics"  and click Add Module.
+Add a new item in "Review": choose "mcp_concepts->posts"  and click Add Module.
 
 
-
- 
+xxx.
+open ......your_forum_site/nuc_schedule.php 
 
 
 
