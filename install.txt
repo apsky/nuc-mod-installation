@@ -332,7 +332,7 @@ insert into root\language\en\acp\common.php
 
 xxx.
 insert into root\language\en\mcp.php 
-- after approx 208
+- after approx 209
 
     // nuc nuc
 	'MCP_CONCEPTS'								=> 'Review',
@@ -346,7 +346,7 @@ insert into root\language\en\mcp.php
 
 xxx.
 insert into root\phpbb\session.php 
-- after approx 981
+- after approx 991  (// Firstly, delete guest sessions .... $db->sql_query($sql);)
 
         // nuc nuc очистить newers
 		$sql = 'DELETE FROM ' . NUC_NEWERS_TABLE . '
@@ -358,8 +358,8 @@ insert into root\phpbb\session.php
         // nuc nuc end
 
 xxx.
-insert into root\styles\prosilver\template\navbar_header.html 
-- after approx 111
+====  REPLACE ! ! !===== in root\styles\prosilver\template\navbar_header.html 
+- after approx 113             (<!-- ENDIF -->  	</ul>)        replace evreything with:
 
 	<div class="panel bg1" style="margin-bottom: 0px">
 		<div class="inner"><span class="corners-top-inner"></span>
@@ -623,7 +623,7 @@ $(document).ready(function () {
 
 xxx.
 insert into root\styles\prosilver\theme\common.css 
-- after approx 1306
+- after approx 1306 append: 
 
 /* nuc nuc
 ---------------------------------------- */
@@ -764,9 +764,10 @@ Go to Administration Control Panel > System > Module Management : Moderation Con
 This will bring you to the list of top level categories for the MCP. (i.e. the Tabs)
 Add a new tab: type "Review" in the Tab name in the lower left-hand input field, and click Create New Module.
 When you reach the options screen for your new tab/module, be sure to select type: Category and No Parent -- Module enabled: Yes.
-Add a new item in "Review": choose "mcp_concepts->topics"  and click Add Module.
-Add a new item in "Review": choose "mcp_concepts->posts"  and click Add Module.
-
+Go back and select Review item:
+Add a new item : choose "mcp_concepts->topics" in the lower right-hand input field,  and click Add Module.
+Add a new item : choose "mcp_concepts->posts" in the lower right-hand input field, and click Add Module.
+Make them enabled.
 
 xxx.
 open ......your_forum_site/nuc_schedule.php 

@@ -134,11 +134,7 @@ $number = 100; // запуливаем пул из 100 концептов
     // очистить на форуме для анонимуса
     $sql = sprintf('delete from phpbb_nuc_concepts where user_id = 1;');
     $db->sql_query($sql);
-    $sql = sprintf('delete from phpbb_nuc_recom_links  where user_id = 1;');
-    $db->sql_query($sql);
     $sql = sprintf('delete from phpbb_nuc_recom_topics  where user_id = 1;');
-    $db->sql_query($sql);
-    $sql = sprintf('delete from phpbb_nuc_find  where user_id = 1;');
     $db->sql_query($sql);
     $sql = sprintf('delete from phpbb_nuc_friends  where user1_id = 1 or user2_id = 1;');
     $db->sql_query($sql);
@@ -155,7 +151,7 @@ $number = 100; // запуливаем пул из 100 концептов
     $db->sql_freeresult($res);
     // анонимус тупо получает новые концепты
     $sql = sprintf(
-        'select concept_id, concept, link_url, forum_id, topic_id from nuc_concepts_view 
+        'select concept_id, concept, forum_id, topic_id from phpbb_nuc_all_concepts 
         order by ndate desc limit %d;',  $number  );
     $res = $db->sql_query($sql);
     $iuser = 1; //anonimous
@@ -163,7 +159,7 @@ $number = 100; // запуливаем пул из 100 концептов
     $db->sql_freeresult($res);
     
     //популярные рекомендации для всех
-    $sql = sprintf('delete from phpbb_nuc_recom_links  where user_id = 1 or user_id is null;');
+    /*$sql = sprintf('delete from phpbb_nuc_recom_links  where user_id = 1 or user_id is null;');
     $db->sql_query($sql);
     $sql = 'set @temp=0;';
     $db->sql_query($sql);
@@ -175,6 +171,7 @@ $number = 100; // запуливаем пул из 100 концептов
                 from  recom_links_view where user_id = 1;', 
                 $iuser );
     $db->sql_query($sql);
+    */
     
     // статистика по анонимусу
     printf( "Anonimous: nuc0(%d) nuc1(%d) nuc2(%d) nuc3(%d) nuc4(%d)<br>\n", 
@@ -211,7 +208,7 @@ $number = 100; // запуливаем пул из 100 концептов
 
             // запулить свежие ndate-desc концепты на которых нет ответов
             $sql = sprintf( 
-                'select concept_id, concept, link_url, forum_id, topic_id from nuc_concepts_view as ncw 
+                'select concept_id, concept, forum_id, topic_id from phpbb_nuc_all_concepts as ncw 
                 where not exists (select concept_id from phpbb_nuc_dna where user_id=%d and concept_id = ncw.concept_id)
                 order by ndate desc limit %d;', $iuser, $number );
             $res = $db->sql_query($sql);
@@ -237,7 +234,7 @@ $number = 100; // запуливаем пул из 100 концептов
             }
             
             // запулить рекомендованные ссылки
-            $sql = sprintf('delete from phpbb_nuc_recom_links where user_id=%d', $iuser );
+/*            $sql = sprintf('delete from phpbb_nuc_recom_links where user_id=%d', $iuser );
             $db->sql_query($sql);
             $sql = 'set @temp=0;';
             $db->sql_query($sql); 
@@ -249,7 +246,7 @@ $number = 100; // запуливаем пул из 100 концептов
                 from  recom_links_view where user_id = %d;', 
                 $iuser );
             $lnk = $db->sql_affectedrows($db->sql_query($sql));
-    
+*/    
             // запулить рекомендованные топики
             $sql = sprintf('delete from phpbb_nuc_recom_topics where user_id=%d', $iuser );
             $db->sql_query($sql);
@@ -272,16 +269,16 @@ $number = 100; // запуливаем пул из 100 концептов
             // оновляем друзей
                 $sql = sprintf(  
                 'insert into phpbb_nuc_friends
-                select * from friends_plus_view where friends_plus_view.user1_id = %d
-                order by friends_plus_view.friend_k desc limit 10
+                select * from friends_view where friends_view.user1_id = %d
+                order by friends_view.friend_k desc limit 10
                 ', $iuser );
             
             /* //этот запрос был раньше. не понял почему не грохаем несуществующих друзей (которых нет в запросе)
                 $sql = sprintf(  
                 'insert into phpbb_nuc_friends
-                select * from friends_plus_view where friends_plus_view.user1_id = %d
-                order by friends_plus_view.friend_k desc limit 10
-                ON DUPLICATE KEY UPDATE phpbb_nuc_friends.friend_k=friends_plus_view.friend_k ', $iuser );*/
+                select * from friends_view where friends_view.user1_id = %d
+                order by friends_view.friend_k desc limit 10
+                ON DUPLICATE KEY UPDATE phpbb_nuc_friends.friend_k=friends_view.friend_k ', $iuser );*/
                 
             $frc = $db->sql_affectedrows($db->sql_query($sql));    
 
