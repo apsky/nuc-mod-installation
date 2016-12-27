@@ -770,6 +770,13 @@ Add a new item : choose "mcp_concepts->posts" in the lower right-hand input fiel
 Make them enabled.
 
 xxx.
+Change ACP settings
+
+Go to Administration Control Panel > General > Load settings : 
+-- Allow usage of third party content delivery networks: Yes,
+-- Recompile stale style components: Yes.
+
+xxx.
 open ......your_forum_site/nuc_schedule.php 
 
 

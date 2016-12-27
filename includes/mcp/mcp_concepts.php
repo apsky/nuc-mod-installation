@@ -328,7 +328,7 @@ class mcp_concepts
 						'TOPIC_ID'		=> $row['topic_id'],
 						'FORUM_NAME'	=> $forum_names[$row['forum_id']],
 						'POST_SUBJECT'	=> ($row['post_text'] != '') ? 
-                                            bbcode_nl2br($row['post_text']) :
+                                            bbcode_nl2br($row['post_subject'].PHP_EOL.$row['post_text']) :
                                             $user->lang['NO_SUBJECT'],
 						'TOPIC_TITLE'	=> $row['topic_title'],
 						'POST_TIME'		=> $user->format_date($row['post_time']),
