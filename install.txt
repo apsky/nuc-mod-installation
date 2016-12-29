@@ -765,16 +765,8 @@ This will bring you to the list of top level categories for the MCP. (i.e. the T
 Add a new tab: type "Review" in the Tab name in the lower left-hand input field, and click Create New Module.
 When you reach the options screen for your new tab/module, be sure to select type: Category and No Parent -- Module enabled: Yes.
 Go back and select Review item:
-Add a new item : choose "mcp_concepts->topics" in the lower right-hand input field,  and click Add Module.
 Add a new item : choose "mcp_concepts->posts" in the lower right-hand input field, and click Add Module.
-Make them enabled.
-
-xxx.
-Change ACP settings
-
-Go to Administration Control Panel > General > Load settings : 
--- Allow usage of third party content delivery networks: Yes,
--- Recompile stale style components: Yes.
+Make it enabled.
 
 xxx.
 open ......your_forum_site/nuc_schedule.php 

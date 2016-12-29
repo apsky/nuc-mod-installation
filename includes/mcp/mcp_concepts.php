@@ -39,6 +39,7 @@ class mcp_concepts
 		global $config, $phpbb_root_path, $phpEx, $action, $phpbb_container;
 		global $phpbb_dispatcher;
 		include_once($phpbb_root_path . 'includes/functions_posting.' . $phpEx);
+		include_once($phpbb_root_path . 'includes/functions_nuc.' . $phpEx);
 
 		$forum_id = request_var('f', 0);
 		$start = request_var('start', 0);
@@ -79,10 +80,9 @@ class mcp_concepts
 
 		switch ($mode)
 		{
-			case 'unreviewed_topics':
 			case 'unreviewed_posts':
 				$m_perm = 'm_approve'; //
-				$is_topics = ($mode == 'unreviewed_topics') ? true : false;
+				$is_topics = false;
 				$is_restore = false;
 				$visibility_const = ITEM_APPROVED;
 
@@ -168,18 +168,19 @@ class mcp_concepts
 
 				if (!$is_topics)
 				{
-					$sql = 'SELECT p.post_id
+                        $sql = 'SELECT p.post_id
 						FROM ' . POSTS_TABLE . ' p, ' . TOPICS_TABLE . ' t' . (($sort_order_sql[0] == 'u') ? ', ' . USERS_TABLE . ' u' : '') . '
 						WHERE ' . $db->sql_in_set('p.forum_id', $forum_list) . '
 							AND ' . $db->sql_in_set('p.post_visibility', $visibility_const) . '
 							' . (($sort_order_sql[0] == 'u') ? 'AND u.user_id = p.poster_id' : '') . '
 							' . (($topic_id) ? 'AND p.topic_id = ' . $topic_id : '') . "
 							AND t.topic_id = p.topic_id
-							AND (t.topic_visibility <> p.post_visibility
-								OR t.topic_delete_user = 0)
-                            AND p.post_reviewed = 0    
+                            AND p.post_reviewed = 0
 							$limit_time_sql
 						ORDER BY $sort_order_sql";
+
+                        
+                        er('post sql='.$sql);
 
 					/**
 					* Alter sql query to get posts in queue to be accepted
@@ -243,18 +244,18 @@ class mcp_concepts
 						$rowset = array();
 					}
 				}
-				else
+				else // here will not come ($is_topics=false)
 				{
-				    $sql = 'SELECT t.topic_id, t.topic_title, t.forum_id, p.post_id, p.post_subject, p.post_text, p.post_username, p.poster_id, p.post_time, p.post_attachment, u.username, u.username_clean, u.user_colour
-							FROM ' . POSTS_TABLE . ' p, ' . TOPICS_TABLE . ' t, ' . USERS_TABLE . ' u
-							WHERE ' . $db->sql_in_set('p.forum_id', $forum_list) . '
-                                AND  ' . $db->sql_in_set('t.topic_visibility', $visibility_const) . "
-								AND t.topic_id = p.topic_id
-								AND u.user_id = p.poster_id
-                                AND t.topic_delete_user <> 0
-                                AND t.topic_posts_reviewed = 0
-                                $limit_time_sql
-			                    ORDER BY $sort_order_sql";
+				    $sql = 'SELECT t.forum_id, t.topic_id, t.topic_title, t.topic_title AS post_subject, t.topic_time AS post_time, t.topic_poster AS poster_id, t.topic_first_post_id AS post_id, t.topic_attachment AS post_attachment, t.topic_first_poster_name AS username, t.topic_first_poster_colour AS user_colour
+						FROM ' . TOPICS_TABLE . ' t
+						WHERE ' . $db->sql_in_set('forum_id', $forum_list) . '
+							AND  ' . $db->sql_in_set('topic_visibility', $visibility_const) . "
+							AND topic_delete_user <> 0
+                            AND t.topic_posts_reviewed = 0
+							$limit_time_sql
+						ORDER BY $sort_order_sql";
+				    
+                       er('topic sql='.$sql);
 							
 
 					/**
@@ -327,13 +328,12 @@ class mcp_concepts
 						'POST_ID'		=> $row['post_id'],
 						'TOPIC_ID'		=> $row['topic_id'],
 						'FORUM_NAME'	=> $forum_names[$row['forum_id']],
-						'POST_SUBJECT'	=> ($row['post_text'] != '') ? 
-                                            bbcode_nl2br($row['post_subject'].PHP_EOL.$row['post_text']) :
-                                            $user->lang['NO_SUBJECT'],
+						'POST_SUBJECT'	=> ($row['post_text'] != '') ? bbcode_nl2br($row['post_text']) : $user->lang['NO_SUBJECT'],
 						'TOPIC_TITLE'	=> $row['topic_title'],
 						'POST_TIME'		=> $user->format_date($row['post_time']),
 						'ATTACH_ICON_IMG'	=> ($auth->acl_get('u_download') && $auth->acl_get('f_download', $row['forum_id']) && $row['post_attachment']) ? $user->img('icon_topic_attach', $user->lang['TOTAL_ATTACHMENTS']) : '',
 					));
+                    
 				}
                 //trigger_error('kuku 3 n=',count($rowset));
 				unset($rowset, $forum_names);
@@ -436,6 +436,9 @@ class mcp_concepts
                     "," .$post_data['poster_id']. "," . time() . ")";
                 $result = $db->sql_query($sql);  
                 $db->sql_freeresult($result);  
+                $sql = "UPDATE " . POSTS_TABLE . " SET post_reviewed = 1 WHERE post_id = $post_id";
+                $result = $db->sql_query($sql);  
+                $db->sql_freeresult($result); 
 
 				$post_url = append_sid("{$phpbb_root_path}viewtopic.$phpEx", "f={$post_data['forum_id']}&amp;t={$post_data['topic_id']}&amp;p={$post_data['post_id']}") . '#p' . $post_data['post_id'];
 
@@ -512,196 +515,5 @@ class mcp_concepts
 		redirect($redirect);
 	}
 
-	/**
-	* Approve/Restore topics
-	*
-	* @param $action		string	Action we perform on the posts ('approve' or 'restore')
-	* @param $topic_id_list	array	IDs of the topics to approve/restore
-	* @param $id			mixed	Category of the current active module
-	* @param $mode			string	Active module
-	* @return null
-	*/
-	static public function approve_topics($action, $topic_id_list, $id, $mode)
-	{
-		global $db, $template, $user, $config;
-		global $phpEx, $phpbb_root_path, $request, $phpbb_container, $phpbb_dispatcher;
-
-		if (!phpbb_check_ids($topic_id_list, TOPICS_TABLE, 'topic_id', array('m_approve')))
-		{
-			trigger_error('NOT_AUTHORISED');
-		}
-
-		$redirect = $request->variable('redirect', build_url(array('quickmod')));
-		$redirect = reapply_sid($redirect);
-		$success_msg = $topic_url = '';
-		$approve_log = array();
-
-		$s_hidden_fields = build_hidden_fields(array(
-			'i'				=> $id,
-			'mode'			=> $mode,
-			'topic_id_list'	=> $topic_id_list,
-			'action'		=> $action,
-			'redirect'		=> $redirect,
-		));
-
-		$topic_info = phpbb_get_topic_data($topic_id_list, 'm_approve');
-
-		if (confirm_box(true))
-		{
-			$notify_poster = ($action == 'approve' && isset($_REQUEST['notify_poster'])) ? true : false;
-
-			$phpbb_content_visibility = $phpbb_container->get('content.visibility');
-			$first_post_ids = array();
-
-			foreach ($topic_info as $topic_id => $topic_data)
-			{
-				$phpbb_content_visibility->set_topic_visibility(ITEM_APPROVED, $topic_id, $topic_data['forum_id'], $user->data['user_id'], time(), '');
-				$first_post_ids[$topic_id] = (int) $topic_data['topic_first_post_id'];
-
-				$topic_url = append_sid("{$phpbb_root_path}viewtopic.$phpEx", "f={$topic_data['forum_id']}&amp;t={$topic_id}");
-
-				$approve_log[] = array(
-					'forum_id'		=> $topic_data['forum_id'],
-					'topic_id'		=> $topic_data['topic_id'],
-					'topic_title'	=> $topic_data['topic_title'],
-				);
-			}
-
-			if (sizeof($topic_info) >= 1)
-			{
-				$success_msg = (sizeof($topic_info) == 1) ? 'TOPIC_' . strtoupper($action) . 'D_SUCCESS' : 'TOPICS_' . strtoupper($action) . 'D_SUCCESS';
-			}
-
-			foreach ($approve_log as $log_data)
-			{
-				add_log('mod', $log_data['forum_id'], $log_data['topic_id'], 'LOG_TOPIC_' . strtoupper($action) . 'D', $log_data['topic_title']);
-			}
-
-			// Only send out the mails, when the posts are being approved
-			if ($action == 'approve')
-			{
-				// Grab the first post text as it's needed for the quote notification.
-				$sql = 'SELECT topic_id, post_text
-					FROM ' . POSTS_TABLE . '
-					WHERE ' . $db->sql_in_set('post_id', $first_post_ids);
-				$result = $db->sql_query($sql);
-
-				while ($row = $db->sql_fetchrow($result))
-				{
-					$topic_info[$row['topic_id']]['post_text'] = $row['post_text'];
-				}
-				$db->sql_freeresult($result);
-
-				// Handle notifications
-				$phpbb_notifications = $phpbb_container->get('notification_manager');
-
-				foreach ($topic_info as $topic_id => $topic_data)
-				{
-					$topic_data = array_merge($topic_data, array(
-						'post_id'		=> $topic_data['topic_first_post_id'],
-						'post_subject'	=> $topic_data['topic_title'],
-						'post_time'		=> $topic_data['topic_time'],
-						'poster_id'		=> $topic_data['topic_poster'],
-						'post_username'	=> $topic_data['topic_first_poster_name'],
-					));
-
-					$phpbb_notifications->delete_notifications('notification.type.topic_in_queue', $topic_id);
-
-					// Only add notifications, if we are not reapproving post
-					// When the topic was already approved, but was edited and
-					// now needs re-approval, we don't want to notify the users
-					// again.
-					if ($topic_data['topic_visibility'] == ITEM_UNAPPROVED)
-					{
-						$phpbb_notifications->add_notifications(array(
-							'notification.type.quote',
-							'notification.type.topic',
-						), $topic_data);
-					}
-
-					$phpbb_notifications->mark_notifications_read('notification.type.quote', $topic_data['post_id'], $user->data['user_id']);
-					$phpbb_notifications->mark_notifications_read('notification.type.topic', $topic_id, $user->data['user_id']);
-
-					if ($notify_poster)
-					{
-						$phpbb_notifications->add_notifications('notification.type.approve_topic', $topic_data);
-					}
-				}
-			}
-
-			/**
-			 * Perform additional actions during topics(s) approval
-			 *
-			 * @event core.approve_topics_after
-			 * @var	string	action				Variable containing the action we perform on the posts ('approve' or 'restore')
-			 * @var	mixed	topic_info			Array containing info for all topics being approved
-			 * @var	array	first_post_ids		Array containing ids of all first posts
-			 * @var bool	notify_poster		Variable telling if the poster should be notified or not
-			 * @var	string	success_msg			Variable containing the language key for the success message
-			 * @var string	redirect			Variable containing the redirect url
-			 * @since 3.1.4-RC1
-			 */
-			$vars = array(
-				'action',
-				'topic_info',
-				'first_post_ids',
-				'notify_poster',
-				'success_msg',
-				'redirect',
-			);
-			extract($phpbb_dispatcher->trigger_event('core.approve_topics_after', compact($vars)));
-
-			meta_refresh(3, $redirect);
-			$message = $user->lang[$success_msg];
-
-			if ($request->is_ajax())
-			{
-				$json_response = new \phpbb\json_response;
-				$json_response->send(array(
-					'MESSAGE_TITLE'		=> $user->lang['INFORMATION'],
-					'MESSAGE_TEXT'		=> $message,
-					'REFRESH_DATA'		=> null,
-					'visible'			=> true,
-				));
-			}
-			$message .= '<br /><br />' . $user->lang('RETURN_PAGE', '<a href="' . $redirect . '">', '</a>');
-
-			// If approving one topic, also give links back to topic...
-			if (sizeof($topic_info) == 1 && $topic_url)
-			{
-				$message .= '<br /><br />' . $user->lang('RETURN_TOPIC', '<a href="' . $topic_url . '">', '</a>');
-			}
-			trigger_error($message);
-		}
-		else
-		{
-			$show_notify = false;
-
-			if ($action == 'approve')
-			{
-				foreach ($topic_info as $topic_data)
-				{
-					if ($topic_data['topic_poster'] == ANONYMOUS)
-					{
-						continue;
-					}
-					else
-					{
-						$show_notify = true;
-						break;
-					}
-				}
-			}
-
-			$template->assign_vars(array(
-				'S_NOTIFY_POSTER'			=> $show_notify,
-				'S_' . strtoupper($action)	=> true,
-			));
-
-			confirm_box(false, strtoupper($action) . '_TOPIC' . ((sizeof($topic_id_list) == 1) ? '' : 'S'), $s_hidden_fields, 'mcp_approve.html');
-		}
-
-		redirect($redirect);
-	}
 
 }

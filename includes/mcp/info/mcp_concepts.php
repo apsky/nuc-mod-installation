@@ -20,7 +20,6 @@ class mcp_concepts_info
 			'title'		=> 'MCP_CONCEPTS',
 			'version'	=> '1.0.0',
 			'modes'		=> array(
-				'unreviewed_topics'	=> array('title' => 'MCP_CONCEPTS_UNREVIEWED_TOPICS', 'auth' => 'aclf_m_approve', 'cat' => array('MCP_CONCEPTS')),
 				'unreviewed_posts'	=> array('title' => 'MCP_CONCEPTS_UNREVIEWED_POSTS', 'auth' => 'aclf_m_approve', 'cat' => array('MCP_CONCEPTS')),
 
 			),
