@@ -91,10 +91,10 @@ if ($result = $db->sql_query($sql)) {
     <a class="nuclink" id="no_hvr" data-qry="'.$CONCEPT_AJAX.'&nuc=0" data-hr="'.$CONCEPT_TOPIC.'" target="_blank">'.$CONCEPT_CAPTION.'</a>
     <br style="line-height: 18px;"/>
     <span class="voteline" style="display: none;" >  
-    <img class="nuc" id="nuc1" title="интересно" src="'.$SMILIES_PATH.'nuc1.png" data-qry="'.$CONCEPT_AJAX.'&nuc=1" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
-    <img class="nuc" id="nuc2" title="удалить" src="'.$SMILIES_PATH.'nuc2.png" data-qry="'.$CONCEPT_AJAX.'&nuc=2" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
-    <img class="nuc" id="nuc3" title="отложить" src="'.$SMILIES_PATH.'nuc3.png" data-qry="'.$CONCEPT_AJAX.'&nuc=3" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
-    <img class="nuc" id="nuc4" title="что это?" src="'.$SMILIES_PATH.'nuc4.png" data-qry="'.$CONCEPT_AJAX.'&nuc=4" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
+    <img class="nuc" id="nuc1" title="'.$user->lang('NUC_NUC1').'" src="'.$SMILIES_PATH.'nuc1.png" data-qry="'.$CONCEPT_AJAX.'&nuc=1" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
+    <img class="nuc" id="nuc2" title="'.$user->lang('NUC_NUC2').'" src="'.$SMILIES_PATH.'nuc2.png" data-qry="'.$CONCEPT_AJAX.'&nuc=2" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
+    <img class="nuc" id="nuc3" title="'.$user->lang('NUC_NUC3').'" src="'.$SMILIES_PATH.'nuc3.png" data-qry="'.$CONCEPT_AJAX.'&nuc=3" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
+    <img class="nuc" id="nuc4" title="'.$user->lang('NUC_NUC4').'" src="'.$SMILIES_PATH.'nuc4.png" data-qry="'.$CONCEPT_AJAX.'&nuc=4" data-id="'.$CONCEPT_ID.'" data-checked="0" ></img>
     <a class="nuc" id="forum_link" href="'.$CONCEPT_TOPIC.'" style="display: none;" >'.$CONCEPT_TOPIC_CAPTION.'</a>';
         $html .= '<br style="line-height: 18px;"/> </span> <hr/> </li>';
     }

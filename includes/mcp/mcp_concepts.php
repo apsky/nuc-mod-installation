@@ -328,7 +328,7 @@ class mcp_concepts
 						'POST_ID'		=> $row['post_id'],
 						'TOPIC_ID'		=> $row['topic_id'],
 						'FORUM_NAME'	=> $forum_names[$row['forum_id']],
-						'POST_SUBJECT'	=> ($row['post_text'] != '') ? bbcode_nl2br($row['post_text']) : $user->lang['NO_SUBJECT'],
+						'POST_SUBJECT'	=> ($row['post_subject'] != '') ? bbcode_nl2br($row['post_subject'].PHP_EOL.$row['post_text']) : $user->lang['NO_SUBJECT'],
 						'TOPIC_TITLE'	=> $row['topic_title'],
 						'POST_TIME'		=> $user->format_date($row['post_time']),
 						'ATTACH_ICON_IMG'	=> ($auth->acl_get('u_download') && $auth->acl_get('f_download', $row['forum_id']) && $row['post_attachment']) ? $user->img('icon_topic_attach', $user->lang['TOTAL_ATTACHMENTS']) : '',
@@ -424,8 +424,8 @@ class mcp_concepts
 					continue;
 				}
                 
-                //nuc
-                $conc =  mysql_real_escape_string($post_concept_list[$post_id]);
+                //nuc 
+                $conc =  mysql_escape_string($post_concept_list[$post_id]); // mysql_real_escape_string give db connection error (undefined)
                 //$conc =  $post_id;
                 //trigger_error('kuku 3 rr='.print_r($post_concept_list,true).' fp='.print_r($form_posts,true));
                 //trigger_error('kuku 3 rr='.print_r($post_info,true));

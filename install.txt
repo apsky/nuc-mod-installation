@@ -317,10 +317,15 @@ insert into root\language\en\common.php
 
            //nuc nuc nuc		
            'NUC_WELCOME'	      	=> 'News',
-	       'NUC_RECOM'				=> 'Recommended',
-	       'NUC_RECOM_FRIENDS'		=> 'Common iterests (rates)',
-	       'NUC_RECOM_LINKS'		=> 'Popular',
-	       'NUC_RECOM_FORUM'       	=> 'Interestig topics '
+	   'NUC_RECOM'				=> 'Recommended',
+	   'NUC_RECOM_FRIENDS'		=> 'Common iterests (rates)',
+	   'NUC_RECOM_LINKS'		=> 'Popular',
+	   'NUC_RECOM_FORUM'       	=> 'Interestig topics ',
+           'NUC_NUC1'       	=> 'First',
+           'NUC_NUC2'       	=> 'Delete',
+           'NUC_NUC3'       	=> 'Postpone',
+           'NUC_NUC4'       	=> "What's this?"
+
 
 xxx.
 insert into root\language\en\acp\common.php 
@@ -745,12 +750,7 @@ insert into root\styles\prosilver\theme\common.css
    }
    
 .edt {  
-    width: 320px; 
-        height: 100%; 
-        border-style: none; 
         text-transform: lowercase; 
-        padding: 10px;
-         
 }
 
 .word { cursor: pointer; }

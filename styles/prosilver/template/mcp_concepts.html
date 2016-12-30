@@ -49,7 +49,8 @@
 				<dt>
 					<div class="list-inner">
 						<div class="dat">{postrow.POST_SUBJECT}</div> {postrow.ATTACH_ICON_IMG}<br />
-						<span>{L_POSTED} {L_POST_BY_AUTHOR} {postrow.POST_AUTHOR_FULL} &raquo; {postrow.POST_TIME}</span>
+						<textarea class="edt" name="post_id_list[{postrow.POST_ID}]"></textarea>
+                        
 					</div>
 				</dt>
 				<dd class="moderation">
@@ -59,14 +60,7 @@
 					</span>
 				</dd>
 
-		 		<dd >
-					<!-- IF S_TOPICS -->
-                        <textarea class="edt"  name="topic_id_list[{postrow.TOPIC_ID}]"></textarea>
-					<!-- ELSE -->
-                        <textarea class="edt" name="post_id_list[{postrow.POST_ID}]"></textarea>
-					<!-- ENDIF -->
-
-				</dd>
+		 		
 			</dl>
 		</li>
 		<!-- ENDIF -->
