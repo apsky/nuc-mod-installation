@@ -83,9 +83,9 @@ if ($result = $db->sql_query($sql)) {
         $CONCEPT_AJAX = $phpbb_root_path.'nuc.php?concept_id='.$row['concept_id'];
 		$CONCEPT_URL = $row['link_url'];
         $CONCEPT_TOPIC = ($row['topic_id']>0)?
-            $phpbb_root_path."viewtopic.$phpEx?f=".$row['forum_id']."&amp;t=".$row['topic_id']:
-            $phpbb_root_path."posting.php?mode=post&f=3";
-        $CONCEPT_TOPIC_CAPTION = ($row['topic_id']>0)?"Обсуждение":"Создать обсуждение";
+            append_sid($phpbb_root_path."viewtopic.$phpEx?f=".$row['forum_id']."&amp;t=".$row['topic_id']):
+            append_sid($phpbb_root_path."posting.php?mode=post&f=3");
+        $CONCEPT_TOPIC_CAPTION = ($row['topic_id']>0)?$user->lang('NUC_DISCUSSION'):$user->lang('NUC_CREATE_DISCUSSION');
         $SMILIES_PATH = $phpbb_root_path.$config['smilies_path'].'/';
         $html .= '
     <a class="nuclink" id="no_hvr" data-qry="'.$CONCEPT_AJAX.'&nuc=0" data-hr="'.$CONCEPT_TOPIC.'" target="_blank">'.$CONCEPT_CAPTION.'</a>
